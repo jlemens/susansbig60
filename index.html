@@ -426,8 +426,6 @@
 
 <button id="mute" aria-label="Toggle sound" title="Toggle sound">&#x1F50A;</button>
 
-<audio id="bg-music" src="sounds/background%20music.mp3" loop preload="auto"></audio>
-
 <div id="frame"></div>
 <canvas id="confetti"></canvas>
 
@@ -462,10 +460,21 @@ let elapsedTimer = null;
 let startTime = 0;
 
 /* ============================================================
-   AUDIO
+   AUDIO  (built to survive iOS Safari's quirks)
    ============================================================ */
-const bgMusic = $('#bg-music');
+
+/* Build the music element in JS — same pattern as gunshots, which work.
+   The HTML <audio> element gets ignored / replaced. */
+const bgMusic = new Audio('sounds/background-music.mp3');
+bgMusic.loop = true;
+bgMusic.preload = 'auto';
 bgMusic.volume = 0.35;
+bgMusic.setAttribute('playsinline', '');
+bgMusic.setAttribute('webkit-playsinline', '');
+
+let muted = false;
+let audioUnlocked = false;
+let musicPlaying = false;
 
 /* Pool of gunshot Audio objects so rapid taps overlap cleanly */
 const GUNSHOT_POOL_SIZE = 5;
@@ -473,10 +482,10 @@ const gunshotPool = Array.from({ length: GUNSHOT_POOL_SIZE }, () => {
   const a = new Audio('sounds/gunshot.mp3');
   a.preload = 'auto';
   a.volume = 0.65;
+  a.setAttribute('playsinline', '');
   return a;
 });
 let gunshotIdx = 0;
-let muted = false;
 
 function playGunshot() {
   if (muted) return;
@@ -486,30 +495,119 @@ function playGunshot() {
   a.play().catch(() => {});
 }
 
-/* Try to start music immediately. Most browsers (especially iOS Safari)
-   will block this until the first user gesture, so we also kick it off
-   on the very first tap/click/key. */
+/* Try to start music. Returns the underlying play() promise so callers
+   can react. */
 function tryPlayMusic() {
-  if (muted) return;
-  bgMusic.play().catch(() => {});
+  if (muted) return Promise.resolve();
+  const p = bgMusic.play();
+  if (p && typeof p.then === 'function') {
+    return p.then(() => { musicPlaying = true; })
+            .catch(() => { musicPlaying = false; });
+  }
+  musicPlaying = true;
+  return Promise.resolve();
 }
-tryPlayMusic();
 
-const startAudioOnFirstGesture = () => {
-  tryPlayMusic();
-  // Prime the gunshot pool too — iOS won't play these later otherwise.
-  gunshotPool.forEach(a => {
-    a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
+/* Mark playback state from native events so we know if we need to retry. */
+bgMusic.addEventListener('playing', () => { musicPlaying = true;  hideMusicPrompt(); });
+bgMusic.addEventListener('pause',   () => { musicPlaying = false; });
+bgMusic.addEventListener('ended',   () => { musicPlaying = false; tryPlayMusic(); });
+
+/* Once the file has buffered enough, take another shot at autoplay
+   (only matters if the user gesture already unlocked us). */
+['canplay', 'canplaythrough', 'loadeddata'].forEach(evt => {
+  bgMusic.addEventListener(evt, () => {
+    if (audioUnlocked && !musicPlaying && !muted) tryPlayMusic();
   });
-  document.removeEventListener('pointerdown', startAudioOnFirstGesture);
-  document.removeEventListener('touchstart',  startAudioOnFirstGesture);
-  document.removeEventListener('keydown',     startAudioOnFirstGesture);
-  document.removeEventListener('click',       startAudioOnFirstGesture);
+});
+
+/* Trigger an explicit network load so iOS starts buffering ASAP. */
+try { bgMusic.load(); } catch (_) {}
+
+/* iOS Safari requires play() to be invoked from a real user gesture.
+   On the first tap/click anywhere on the page, we:
+     1. Call bgMusic.play() — this "unlocks" the element even if it
+        rejects because the file isn't ready yet.
+     2. Prime each gunshot Audio (play+pause) so future shots fire.
+     3. Kick off a short retry loop: once unlocked, repeated play()
+        calls are allowed and will succeed as soon as buffering finishes.
+*/
+const unlockAudio = () => {
+  if (audioUnlocked) return;
+  audioUnlocked = true;
+
+  // Music
+  tryPlayMusic();
+
+  // Gunshots
+  gunshotPool.forEach(a => {
+    const p = a.play();
+    if (p && typeof p.then === 'function') {
+      p.then(() => { a.pause(); try { a.currentTime = 0; } catch (_) {} })
+       .catch(() => {});
+    }
+  });
+
+  // Retry music up to ~6s in case the MP3 is still buffering
+  let retries = 0;
+  const retryId = setInterval(() => {
+    if (musicPlaying || muted || retries++ > 12) {
+      if (!musicPlaying && !muted) showMusicPrompt();
+      clearInterval(retryId);
+      return;
+    }
+    tryPlayMusic();
+  }, 500);
 };
-document.addEventListener('pointerdown', startAudioOnFirstGesture, { once: true });
-document.addEventListener('touchstart',  startAudioOnFirstGesture, { once: true });
-document.addEventListener('keydown',     startAudioOnFirstGesture, { once: true });
-document.addEventListener('click',       startAudioOnFirstGesture, { once: true });
+['pointerdown', 'touchstart', 'touchend', 'click', 'keydown'].forEach(evt => {
+  document.addEventListener(evt, unlockAudio, { once: true, capture: true });
+});
+
+/* If iOS *still* won't play music after all our retries, surface a
+   one-tap prompt that explicitly starts it (guaranteed user gesture). */
+function showMusicPrompt() {
+  if (document.getElementById('music-prompt')) return;
+  const p = document.createElement('button');
+  p.id = 'music-prompt';
+  p.innerHTML = '&#x1F3B5; Tap for music';
+  p.style.cssText = `
+    position: fixed;
+    top: max(18px, env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 70;
+    padding: 10px 18px;
+    background: linear-gradient(180deg, #b04a1a 0%, #7a2c0a 100%);
+    color: #fff5dc;
+    font-family: 'Rye', serif;
+    font-size: 14px;
+    letter-spacing: 1px;
+    border: 2px solid #3a1505;
+    border-radius: 999px;
+    box-shadow: 0 5px 0 #3a1505, 0 8px 14px rgba(0,0,0,0.5);
+    cursor: pointer;
+    animation: musicPulse 1.4s ease-in-out infinite;
+  `;
+  p.addEventListener('click', () => {
+    tryPlayMusic().then(() => { if (musicPlaying) hideMusicPrompt(); });
+  });
+  document.body.appendChild(p);
+
+  if (!document.getElementById('music-prompt-style')) {
+    const s = document.createElement('style');
+    s.id = 'music-prompt-style';
+    s.textContent = `
+      @keyframes musicPulse {
+        0%,100% { transform: translateX(-50%) scale(1); }
+        50%     { transform: translateX(-50%) scale(1.06); }
+      }`;
+    document.head.appendChild(s);
+  }
+}
+function hideMusicPrompt() {
+  const p = document.getElementById('music-prompt');
+  if (p) p.remove();
+}
 
 /* Mute toggle */
 const muteBtn = $('#mute');
@@ -520,7 +618,7 @@ muteBtn.addEventListener('click', () => {
   if (muted) {
     bgMusic.pause();
   } else {
-    bgMusic.play().catch(() => {});
+    tryPlayMusic();
   }
 });
 
