@@ -274,6 +274,92 @@
     box-shadow: inset 0 0 180px rgba(20,8,2,0.85);
   }
 
+  /* ---------- SPLASH (entry screen — guarantees iOS audio start) ---------- */
+  #splash {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background:
+      radial-gradient(ellipse at center, rgba(40,18,5,0.55) 0%, rgba(15,7,2,0.92) 75%),
+      url('Photos/background.jpeg') center center / cover no-repeat;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 30px;
+    transition: opacity 0.6s ease;
+  }
+  #splash.gone {
+    opacity: 0;
+    pointer-events: none;
+  }
+  #splash .splash-card {
+    max-width: 460px;
+    padding: 36px 32px 32px;
+    background: linear-gradient(180deg, #fdf3d8 0%, #f0dca9 100%);
+    color: #3a210e;
+    border: 3px solid #5a3414;
+    border-radius: 14px;
+    box-shadow:
+      0 0 0 4px #c9a35a,
+      0 18px 38px rgba(0,0,0,0.7);
+    animation: splashIn 0.7s ease-out;
+  }
+  @keyframes splashIn {
+    0%   { transform: translateY(20px) scale(0.94); opacity: 0; }
+    100% { transform: translateY(0)    scale(1);    opacity: 1; }
+  }
+  #splash h1 {
+    font-family: 'Rye', serif;
+    font-size: clamp(28px, 5vw, 44px);
+    color: #6e2a0c;
+    letter-spacing: 1.5px;
+    margin-bottom: 6px;
+    text-shadow: 1px 1px 0 #c9a35a;
+    line-height: 1.1;
+  }
+  #splash .star {
+    font-size: 22px;
+    color: #b04a1a;
+    letter-spacing: 6px;
+    margin-bottom: 14px;
+  }
+  #splash p {
+    font-size: clamp(15px, 1.8vw, 18px);
+    line-height: 1.45;
+    margin-bottom: 8px;
+  }
+  #splash .small {
+    font-size: 0.85em;
+    color: #7a4818;
+    font-style: italic;
+    margin-bottom: 22px;
+  }
+  #splash .splash-btn {
+    display: inline-block;
+    padding: 16px 36px;
+    background: linear-gradient(180deg, #b04a1a 0%, #7a2c0a 100%);
+    color: #fff5dc;
+    font-family: 'Rye', serif;
+    font-size: clamp(18px, 2.4vw, 22px);
+    letter-spacing: 2px;
+    border: 3px solid #3a1505;
+    border-radius: 10px;
+    cursor: pointer;
+    box-shadow: 0 6px 0 #3a1505, 0 10px 18px rgba(0,0,0,0.5);
+    text-shadow: 1px 1px 0 #3a1505;
+    animation: splashBtnPulse 1.8s ease-in-out infinite;
+  }
+  @keyframes splashBtnPulse {
+    0%, 100% { transform: scale(1);    box-shadow: 0 6px 0 #3a1505, 0 10px 18px rgba(0,0,0,0.5); }
+    50%      { transform: scale(1.04); box-shadow: 0 6px 0 #3a1505, 0 14px 26px rgba(255,170,80,0.35); }
+  }
+  #splash .splash-btn:active {
+    transform: translateY(4px) scale(1) !important;
+    box-shadow: 0 2px 0 #3a1505 !important;
+    animation: none;
+  }
+
   /* ---------- MUTE BUTTON ---------- */
   #mute {
     position: absolute;
@@ -426,6 +512,17 @@
 
 <button id="mute" aria-label="Toggle sound" title="Toggle sound">&#x1F50A;</button>
 
+<div id="splash" role="dialog" aria-label="Welcome">
+  <div class="splash-card">
+    <h1>Howdy, Susan…</h1>
+    <div class="star">&#x2605; &#x2605; &#x2605;</div>
+    <p>A weather-beaten cowboy's been waitin' on ya at the edge o' town.</p>
+    <p>He's got a tale to tell — an' a birthday wish from far away.</p>
+    <p class="small">(Sound on for the full ride, partner.)</p>
+    <button id="splash-btn" class="splash-btn">Step Inside &#x2192;</button>
+  </div>
+</div>
+
 <div id="frame"></div>
 <canvas id="confetti"></canvas>
 
@@ -509,7 +606,7 @@ function tryPlayMusic() {
 }
 
 /* Mark playback state from native events so we know if we need to retry. */
-bgMusic.addEventListener('playing', () => { musicPlaying = true;  hideMusicPrompt(); });
+bgMusic.addEventListener('playing', () => { musicPlaying = true; });
 bgMusic.addEventListener('pause',   () => { musicPlaying = false; });
 bgMusic.addEventListener('ended',   () => { musicPlaying = false; tryPlayMusic(); });
 
@@ -552,7 +649,6 @@ const unlockAudio = () => {
   let retries = 0;
   const retryId = setInterval(() => {
     if (musicPlaying || muted || retries++ > 12) {
-      if (!musicPlaying && !muted) showMusicPrompt();
       clearInterval(retryId);
       return;
     }
@@ -562,52 +658,6 @@ const unlockAudio = () => {
 ['pointerdown', 'touchstart', 'touchend', 'click', 'keydown'].forEach(evt => {
   document.addEventListener(evt, unlockAudio, { once: true, capture: true });
 });
-
-/* If iOS *still* won't play music after all our retries, surface a
-   one-tap prompt that explicitly starts it (guaranteed user gesture). */
-function showMusicPrompt() {
-  if (document.getElementById('music-prompt')) return;
-  const p = document.createElement('button');
-  p.id = 'music-prompt';
-  p.innerHTML = '&#x1F3B5; Tap for music';
-  p.style.cssText = `
-    position: fixed;
-    top: max(18px, env(safe-area-inset-top));
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 70;
-    padding: 10px 18px;
-    background: linear-gradient(180deg, #b04a1a 0%, #7a2c0a 100%);
-    color: #fff5dc;
-    font-family: 'Rye', serif;
-    font-size: 14px;
-    letter-spacing: 1px;
-    border: 2px solid #3a1505;
-    border-radius: 999px;
-    box-shadow: 0 5px 0 #3a1505, 0 8px 14px rgba(0,0,0,0.5);
-    cursor: pointer;
-    animation: musicPulse 1.4s ease-in-out infinite;
-  `;
-  p.addEventListener('click', () => {
-    tryPlayMusic().then(() => { if (musicPlaying) hideMusicPrompt(); });
-  });
-  document.body.appendChild(p);
-
-  if (!document.getElementById('music-prompt-style')) {
-    const s = document.createElement('style');
-    s.id = 'music-prompt-style';
-    s.textContent = `
-      @keyframes musicPulse {
-        0%,100% { transform: translateX(-50%) scale(1); }
-        50%     { transform: translateX(-50%) scale(1.06); }
-      }`;
-    document.head.appendChild(s);
-  }
-}
-function hideMusicPrompt() {
-  const p = document.getElementById('music-prompt');
-  if (p) p.remove();
-}
 
 /* Mute toggle */
 const muteBtn = $('#mute');
@@ -1032,9 +1082,44 @@ function loopConfetti() {
   }
 }
 
-/* ---------- Boot ---------- */
+/* ---------- Boot ----------
+   Splash screen guarantees the audio unlock works on iOS Safari.
+   Anything Susan does on the splash (tap "Step Inside") counts as a
+   user gesture, so play() is allowed and the music starts immediately. */
+const splash    = document.getElementById('splash');
+const splashBtn = document.getElementById('splash-btn');
+
+let booted = false;
+function boot() {
+  if (booted) return;
+  booted = true;
+
+  // Unlock + start audio while we're still inside the user gesture.
+  unlockAudio();
+
+  // Fade out the splash, then begin Sam's intro.
+  splash.classList.add('gone');
+  setTimeout(() => splash.remove(), 650);
+  setTimeout(intro, 700);
+}
+
+splashBtn.addEventListener('click',       boot);
+splashBtn.addEventListener('touchstart',  boot, { passive: true });
+
+/* Optimistic autoplay attempt: on rare desktop browsers that allow it
+   (e.g. Firefox with prior interaction), we can skip the splash entirely. */
 window.addEventListener('load', () => {
-  setTimeout(intro, 500);
+  const p = bgMusic.play();
+  if (p && typeof p.then === 'function') {
+    p.then(() => {
+      // Autoplay actually worked — auto-dismiss the splash.
+      audioUnlocked = true;
+      musicPlaying  = true;
+      setTimeout(boot, 400);
+    }).catch(() => {
+      // Expected on iOS Safari & most browsers — splash will wait.
+    });
+  }
 });
 </script>
 </body>
