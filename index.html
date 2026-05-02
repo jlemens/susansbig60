@@ -659,11 +659,13 @@ Object.entries(VOICE_FILES).forEach(([key, src]) => {
 let currentVoice = null;
 let musicDucked = false;
 
-/* Pause the music during voice — pure pause/resume because iOS Safari
-   ignores HTML5 audio volume changes (volume is hardware-controlled).
-   That makes pause the only reliable way to keep music from competing
-   with Sam's voice on Susan's iPhone. */
+/* The music file is now mixed quiet enough that it can play continuously
+   underneath Sam's voice without conflict, so this is a no-op. Kept as a
+   function so we can re-enable ducking later by flipping ENABLE_DUCKING. */
+const ENABLE_DUCKING = false;
+
 function duckMusic(on) {
+  if (!ENABLE_DUCKING) return;
   if (musicDucked === on) return;
   musicDucked = on;
   if (on) {
