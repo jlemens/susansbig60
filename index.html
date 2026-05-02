@@ -75,13 +75,26 @@
     z-index: 5;
     pointer-events: none;
     filter: drop-shadow(0 12px 24px rgba(0,0,0,0.55));
-    animation: samBob 4s ease-in-out infinite;
+    /* Hidden by default — gets revealed after the doors video. */
+    opacity: 0;
+    transform: translateX(-140%);
     transition: opacity 0.55s ease, transform 0.55s ease;
+  }
+  body.sam-entering #sam-wrap {
+    animation: samEnter 1.4s cubic-bezier(0.2, 0.85, 0.3, 1) forwards;
+    transition: none;
+  }
+  body.sam-arrived #sam-wrap {
+    opacity: 1;
+    transform: translateX(0);
+    animation: samBob 4s ease-in-out infinite;
   }
   body.shooting #sam-wrap {
     opacity: 0;
     transform: translate(-30px, 30px) scale(0.9);
     pointer-events: none;
+    animation: none;
+    transition: opacity 0.55s ease, transform 0.55s ease;
   }
   #sam-wrap img {
     height: 100%;
@@ -91,6 +104,32 @@
   @keyframes samBob {
     0%, 100% { transform: translateY(0); }
     50%      { transform: translateY(-6px); }
+  }
+  @keyframes samEnter {
+    0%   { opacity: 0; transform: translateX(-140%); }
+    55%  { opacity: 1; }
+    100% { opacity: 1; transform: translateX(0); }
+  }
+
+  /* ---------- DOORS VIDEO (entry transition) ---------- */
+  #doors-video {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    object-fit: cover;
+    z-index: 110;
+    background: #000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+  }
+  #doors-video.playing {
+    opacity: 1;
+  }
+  #doors-video.gone {
+    display: none;
   }
 
   /* ---------- SPEECH BUBBLE ---------- */
@@ -362,9 +401,9 @@
 
   /* ---------- MUTE BUTTON ---------- */
   #mute {
-    position: absolute;
-    top: max(18px, env(safe-area-inset-top));
-    left: max(18px, env(safe-area-inset-left));
+    position: fixed;
+    bottom: max(18px, env(safe-area-inset-bottom));
+    right: max(18px, env(safe-area-inset-right));
     z-index: 60;
     width: 44px;
     height: 44px;
@@ -523,6 +562,12 @@
   </div>
 </div>
 
+<video id="doors-video"
+       src="Photos/doors.mp4"
+       preload="auto"
+       playsinline
+       webkit-playsinline></video>
+
 <div id="frame"></div>
 <canvas id="confetti"></canvas>
 
@@ -572,6 +617,7 @@ bgMusic.setAttribute('webkit-playsinline', '');
 let muted = false;
 let audioUnlocked = false;
 let musicPlaying = false;
+let musicShouldPlay = false;
 
 /* Pool of gunshot Audio objects so rapid taps overlap cleanly */
 const GUNSHOT_POOL_SIZE = 5;
@@ -592,6 +638,73 @@ function playGunshot() {
   a.play().catch(() => {});
 }
 
+/* ---------- Sam's voice lines ---------- */
+const VOICE_FILES = {
+  scene1: 'sounds/Scene1.mp3',
+  scene2: 'sounds/Scene2.mp3',
+  scene3: 'sounds/Scene3.mp3',
+  scene4: 'sounds/Scene4.mp3',
+  scene5: 'sounds/Scene5.mp3',
+};
+const voiceLines = {};
+Object.entries(VOICE_FILES).forEach(([key, src]) => {
+  const a = new Audio(src);
+  a.preload = 'auto';
+  a.volume = 0.95;
+  a.setAttribute('playsinline', '');
+  a.setAttribute('webkit-playsinline', '');
+  voiceLines[key] = a;
+});
+
+let currentVoice = null;
+const MUSIC_NORMAL_VOLUME = 0.35;
+const MUSIC_DUCKED_VOLUME = 0.10;
+
+function duckMusic(on) {
+  try { bgMusic.volume = on ? MUSIC_DUCKED_VOLUME : MUSIC_NORMAL_VOLUME; } catch (_) {}
+}
+
+function stopVoice() {
+  if (currentVoice) {
+    try { currentVoice.pause(); currentVoice.currentTime = 0; } catch (_) {}
+  }
+  currentVoice = null;
+  duckMusic(false);
+}
+
+/* Returns the Audio object so callers can read its duration to sync typing. */
+function playVoice(key) {
+  if (muted) return null;
+  const a = voiceLines[key];
+  if (!a) return null;
+
+  if (currentVoice && currentVoice !== a) {
+    try { currentVoice.pause(); currentVoice.currentTime = 0; } catch (_) {}
+  }
+
+  currentVoice = a;
+  try { a.currentTime = 0; } catch (_) {}
+  duckMusic(true);
+
+  const onEnd = () => {
+    if (currentVoice === a) {
+      currentVoice = null;
+      duckMusic(false);
+    }
+    a.removeEventListener('ended', onEnd);
+  };
+  a.addEventListener('ended', onEnd);
+
+  a.play().catch(() => {
+    // If this play() fails, restore music volume so we don't leave it ducked.
+    if (currentVoice === a) {
+      currentVoice = null;
+      duckMusic(false);
+    }
+  });
+  return a;
+}
+
 /* Try to start music. Returns the underlying play() promise so callers
    can react. */
 function tryPlayMusic() {
@@ -610,11 +723,12 @@ bgMusic.addEventListener('playing', () => { musicPlaying = true; });
 bgMusic.addEventListener('pause',   () => { musicPlaying = false; });
 bgMusic.addEventListener('ended',   () => { musicPlaying = false; tryPlayMusic(); });
 
-/* Once the file has buffered enough, take another shot at autoplay
-   (only matters if the user gesture already unlocked us). */
+/* Once the file has buffered enough, take another shot at autoplay —
+   only after we've decided music *should* be playing (i.e. after the
+   doors video has finished). */
 ['canplay', 'canplaythrough', 'loadeddata'].forEach(evt => {
   bgMusic.addEventListener(evt, () => {
-    if (audioUnlocked && !musicPlaying && !muted) tryPlayMusic();
+    if (musicShouldPlay && audioUnlocked && !musicPlaying && !muted) tryPlayMusic();
   });
 });
 
@@ -629,14 +743,26 @@ try { bgMusic.load(); } catch (_) {}
      3. Kick off a short retry loop: once unlocked, repeated play()
         calls are allowed and will succeed as soon as buffering finishes.
 */
+/* Prime an Audio element so iOS will let us play it later: we briefly
+   play it muted, then immediately pause and rewind. */
+function primeForIOS(a) {
+  a.muted = true;
+  const p = a.play();
+  if (p && typeof p.then === 'function') {
+    p.then(() => { a.pause(); try { a.currentTime = 0; } catch (_) {} a.muted = false; })
+     .catch(() => { a.muted = false; });
+  } else {
+    a.muted = false;
+  }
+}
+
 const unlockAudio = () => {
   if (audioUnlocked) return;
   audioUnlocked = true;
 
-  // Music
-  tryPlayMusic();
-
-  // Gunshots
+  // Prime everything (music too) but do NOT start music yet — we want to
+  // wait until the doors video has finished playing.
+  primeForIOS(bgMusic);
   gunshotPool.forEach(a => {
     const p = a.play();
     if (p && typeof p.then === 'function') {
@@ -644,8 +770,15 @@ const unlockAudio = () => {
        .catch(() => {});
     }
   });
+  Object.values(voiceLines).forEach(primeForIOS);
+};
 
-  // Retry music up to ~6s in case the MP3 is still buffering
+/* Called after the doors video finishes — this is when music actually
+   starts. The retry loop covers slow buffering on cellular. */
+function startMusic() {
+  if (muted) return;
+  musicShouldPlay = true;
+  tryPlayMusic();
   let retries = 0;
   const retryId = setInterval(() => {
     if (musicPlaying || muted || retries++ > 12) {
@@ -654,7 +787,7 @@ const unlockAudio = () => {
     }
     tryPlayMusic();
   }, 500);
-};
+}
 ['pointerdown', 'touchstart', 'touchend', 'click', 'keydown'].forEach(evt => {
   document.addEventListener(evt, unlockAudio, { once: true, capture: true });
 });
@@ -667,6 +800,7 @@ muteBtn.addEventListener('click', () => {
   muteBtn.innerHTML = muted ? '&#x1F507;' : '&#x1F50A;';
   if (muted) {
     bgMusic.pause();
+    stopVoice();
   } else {
     tryPlayMusic();
   }
@@ -730,16 +864,61 @@ function typeOut(el, text, speed = 26) {
 }
 
 /* ---------- Sam dialog helper ---------- */
-async function samSays({ title, text, actions = [] }) {
+
+/* Wait for an Audio element's duration to be known (loadedmetadata). */
+function awaitVoiceDuration(audio, timeoutMs = 800) {
+  if (!audio) return Promise.resolve(null);
+  if (audio.duration && isFinite(audio.duration)) return Promise.resolve(audio.duration);
+  return new Promise(resolve => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      resolve(isFinite(audio.duration) ? audio.duration : null);
+    };
+    audio.addEventListener('loadedmetadata', finish, { once: true });
+    audio.addEventListener('canplay',        finish, { once: true });
+    setTimeout(finish, timeoutMs);
+  });
+}
+
+/* Strip our **bold** markers when measuring text length for typing speed. */
+function visibleLength(text) {
+  return text.replace(/\*\*/g, '').length;
+}
+
+async function samSays({ title, text, actions = [], voice = null, typeRate = 1 }) {
   bubble.classList.remove('hidden');
   bTitle.textContent = title;
   bActs.innerHTML = '';
-  await typeOut(bText, text, 24);
+
+  let typeSpeed = 24;
+  let voiceAudio = null;
+
+  if (voice) {
+    voiceAudio = playVoice(voice);
+    if (voiceAudio) {
+      const dur = await awaitVoiceDuration(voiceAudio);
+      if (dur && dur > 0.4) {
+        // Tune typing so it finishes ~250ms before Sam stops talking.
+        // typeRate > 1 finishes proportionally earlier (faster typing).
+        const chars = visibleLength(text);
+        const targetMs = ((dur * 1000) - 250) / Math.max(0.1, typeRate);
+        typeSpeed = Math.max(10, Math.min(70, targetMs / Math.max(1, chars)));
+      }
+    }
+  }
+
+  await typeOut(bText, text, typeSpeed);
+
   actions.forEach(a => {
     const btn = document.createElement('button');
     btn.className = 'btn';
     btn.textContent = a.label;
-    btn.onclick = a.onClick;
+    btn.onclick = () => {
+      stopVoice();      // cut off the current voice line on advance
+      a.onClick();
+    };
     bActs.appendChild(btn);
   });
 }
@@ -749,6 +928,7 @@ function hideBubble() { bubble.classList.add('hidden'); }
 /* ---------- Game flow ---------- */
 async function intro() {
   await samSays({
+    voice: 'scene1',
     title: "Well holy shit, Susan…",
     text:
       "Yer turnin' **60**?! Dog-gon-it — I was 'bout that age when I fought in the Civil War. " +
@@ -762,6 +942,8 @@ async function intro() {
 
 async function act1b() {
   await samSays({
+    voice: 'scene2',
+    typeRate: 1.2,
     title: "Well howdy there, Susan…",
     text:
       "Pull up a stool an' set a spell, ma'am. The name's Sam, an' I rode a long, dusty trail just to tip my hat to ya on yer birthday. " +
@@ -776,6 +958,7 @@ async function act1b() {
 
 async function act2() {
   await samSays({
+    voice: 'scene3',
     title: "There's varmints in the valley.",
     text:
       "A pack o' no-good, low-down bandits rode into town fixin' to spoil yer birthday. Can't have that — not for the finest lady this side o' the Rio Grande. " +
@@ -961,6 +1144,8 @@ async function winGame() {
   startConfetti();
 
   await samSays({
+    voice: 'scene4',
+    typeRate: 1.2,
     title: "Well I'll be hornswoggled, Susan!",
     text:
       "Ya cleaned up this whole dadgum town single-handed. Quick as a rattlesnake an' twice as kind. " +
@@ -976,6 +1161,8 @@ async function winGame() {
 
 async function finalLine() {
   await samSays({
+    voice: 'scene5',
+    typeRate: 1.2,
     title: "Happy Birthday, Susan.",
     text:
       "Yer one in a million, darlin'. Always have been, always will be. " +
@@ -1096,44 +1283,80 @@ function loopConfetti() {
 }
 
 /* ---------- Boot ----------
-   Splash screen guarantees the audio unlock works on iOS Safari.
-   Anything Susan does on the splash (tap "Step Inside") counts as a
-   user gesture, so play() is allowed and the music starts immediately. */
+   Flow on first tap:
+     1. Splash fades out
+     2. Doors video fades in and plays full-screen (with its own audio)
+     3. When the video ends, Sam slides in from the left
+     4. Once Sam lands, music starts and Scene 1 (voice + text) begins
+*/
 const splash    = document.getElementById('splash');
 const splashBtn = document.getElementById('splash-btn');
+const doorsVid  = document.getElementById('doors-video');
 
 let booted = false;
+
 function boot() {
   if (booted) return;
   booted = true;
 
-  // Unlock + start audio while we're still inside the user gesture.
+  // Unlock all audio (including voice lines) while inside the user gesture.
   unlockAudio();
 
-  // Fade out the splash, then begin Sam's intro.
+  // Fade out the splash card.
   splash.classList.add('gone');
   setTimeout(() => splash.remove(), 650);
-  setTimeout(intro, 700);
+
+  // Begin the doors video sequence.
+  playDoorsThenContinue();
 }
 
-splashBtn.addEventListener('click',       boot);
-splashBtn.addEventListener('touchstart',  boot, { passive: true });
+function playDoorsThenContinue() {
+  let advanced = false;
+  const advance = () => {
+    if (advanced) return;
+    advanced = true;
 
-/* Optimistic autoplay attempt: on rare desktop browsers that allow it
-   (e.g. Firefox with prior interaction), we can skip the splash entirely. */
-window.addEventListener('load', () => {
-  const p = bgMusic.play();
-  if (p && typeof p.then === 'function') {
-    p.then(() => {
-      // Autoplay actually worked — auto-dismiss the splash.
-      audioUnlocked = true;
-      musicPlaying  = true;
-      setTimeout(boot, 400);
-    }).catch(() => {
-      // Expected on iOS Safari & most browsers — splash will wait.
-    });
+    // Fade out the video, then remove it.
+    doorsVid.classList.remove('playing');
+    setTimeout(() => doorsVid.classList.add('gone'), 600);
+
+    // Pause the doors audio if still going for any reason.
+    try { doorsVid.pause(); } catch (_) {}
+
+    // Now bring up the music (real start — not just primed).
+    startMusic();
+
+    // Sam slides in from the left.
+    document.body.classList.add('sam-entering');
+    // Match the samEnter animation duration; just before it ends, mark him
+    // "arrived" so he picks up the idle bob without a frame of blank state.
+    setTimeout(() => {
+      document.body.classList.add('sam-arrived');
+      document.body.classList.remove('sam-entering');
+    }, 1300);
+
+    // Slight pause so Sam is fully on-screen before he speaks.
+    setTimeout(intro, 1500);
+  };
+
+  // Show the video, start playback.
+  doorsVid.classList.remove('gone');
+  doorsVid.classList.add('playing');
+
+  doorsVid.addEventListener('ended', advance, { once: true });
+  doorsVid.addEventListener('error', advance, { once: true });
+
+  // Safety net: if the video stalls forever, keep the show moving.
+  setTimeout(advance, 30000);
+
+  const p = doorsVid.play();
+  if (p && typeof p.catch === 'function') {
+    p.catch(() => advance());
   }
-});
+}
+
+splashBtn.addEventListener('click',      boot);
+splashBtn.addEventListener('touchstart', boot, { passive: true });
 </script>
 </body>
 </html>
