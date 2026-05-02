@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Howdy Susan" />
+<meta name="theme-color" content="#1a0f08" />
+<meta name="format-detection" content="telephone=no" />
+<title>Happy Birthday, Susan — A Cowboy's Tale</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rye&family=Special+Elite&family=Smokum&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+    font-family: 'Special Elite', 'Courier New', monospace;
+    background: #1a0f08;
+    color: #f5e6c8;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+    position: fixed;
+    inset: 0;
+  }
+
+  /* ---------- BACKGROUND ---------- */
+  #stage {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    background: url('Photos/background.jpeg') center center / cover no-repeat;
+    overflow: hidden;
+  }
+  #stage::before {
+    content: ""; position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, rgba(40,20,8,0.55) 100%),
+      linear-gradient(to bottom, rgba(255,200,120,0.12), rgba(80,40,15,0.35));
+    pointer-events: none;
+  }
+
+  /* Subtle dust particles */
+  .dust {
+    position: absolute;
+    width: 4px; height: 4px;
+    background: rgba(255,220,160,0.35);
+    border-radius: 50%;
+    pointer-events: none;
+    animation: drift linear infinite;
+  }
+  @keyframes drift {
+    0%   { transform: translate(0,0); opacity: 0; }
+    20%  { opacity: 0.7; }
+    100% { transform: translate(120px, -60px); opacity: 0; }
+  }
+
+  /* ---------- SAM ---------- */
+  #sam-wrap {
+    position: absolute;
+    bottom: 0;
+    left: 2%;
+    height: 88vh;
+    z-index: 5;
+    pointer-events: none;
+    filter: drop-shadow(0 12px 24px rgba(0,0,0,0.55));
+    animation: samBob 4s ease-in-out infinite;
+    transition: opacity 0.55s ease, transform 0.55s ease;
+  }
+  body.shooting #sam-wrap {
+    opacity: 0;
+    transform: translate(-30px, 30px) scale(0.9);
+    pointer-events: none;
+  }
+  #sam-wrap img {
+    height: 100%;
+    width: auto;
+    object-fit: contain;
+  }
+  @keyframes samBob {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-6px); }
+  }
+
+  /* ---------- SPEECH BUBBLE ---------- */
+  #bubble {
+    position: absolute;
+    top: 6vh;
+    left: 28vw;
+    max-width: 540px;
+    min-width: 280px;
+    padding: 22px 28px 24px;
+    background: linear-gradient(180deg, #fdf3d8 0%, #f0dca9 100%);
+    color: #3a210e;
+    border: 3px solid #5a3414;
+    border-radius: 18px;
+    box-shadow:
+      0 0 0 4px #c9a35a,
+      0 14px 30px rgba(0,0,0,0.55),
+      inset 0 0 30px rgba(180,120,60,0.18);
+    font-size: clamp(15px, 2vw, 20px);
+    line-height: 1.45;
+    z-index: 10;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+  #bubble.hidden { opacity: 0; transform: translateY(-10px) scale(0.96); pointer-events: none; }
+  #bubble::before {
+    content: "";
+    position: absolute;
+    bottom: -22px;
+    left: 60px;
+    width: 0; height: 0;
+    border-left: 18px solid transparent;
+    border-right: 28px solid transparent;
+    border-top: 28px solid #5a3414;
+  }
+  #bubble::after {
+    content: "";
+    position: absolute;
+    bottom: -14px;
+    left: 66px;
+    width: 0; height: 0;
+    border-left: 12px solid transparent;
+    border-right: 22px solid transparent;
+    border-top: 20px solid #fdf3d8;
+  }
+  #bubble h1 {
+    font-family: 'Rye', serif;
+    font-size: clamp(22px, 3.2vw, 34px);
+    color: #6e2a0c;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+    text-shadow: 1px 1px 0 #c9a35a;
+  }
+  #bubble p { margin-bottom: 10px; }
+  #bubble p:last-child { margin-bottom: 0; }
+  #bubble .small {
+    font-size: 0.85em;
+    color: #7a4818;
+    font-style: italic;
+  }
+  #bubble b, #bubble strong {
+    font-weight: 800;
+    color: #6e2a0c;
+    background: linear-gradient(180deg, transparent 60%, #f0c97a 60%, #f0c97a 92%, transparent 92%);
+    padding: 0 2px;
+    letter-spacing: 0.3px;
+  }
+
+  /* ---------- BUTTONS ---------- */
+  .btn {
+    display: inline-block;
+    margin-top: 14px;
+    padding: 12px 26px;
+    background: linear-gradient(180deg, #b04a1a 0%, #7a2c0a 100%);
+    color: #fff5dc;
+    font-family: 'Rye', serif;
+    font-size: clamp(16px, 2vw, 20px);
+    letter-spacing: 1.5px;
+    border: 3px solid #3a1505;
+    border-radius: 10px;
+    cursor: pointer;
+    box-shadow: 0 6px 0 #3a1505, 0 10px 16px rgba(0,0,0,0.5);
+    transition: transform 0.08s, box-shadow 0.08s;
+    text-shadow: 1px 1px 0 #3a1505;
+  }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:active {
+    transform: translateY(4px);
+    box-shadow: 0 2px 0 #3a1505, 0 4px 8px rgba(0,0,0,0.5);
+  }
+
+  /* ---------- HUD ---------- */
+  #hud {
+    position: absolute;
+    top: max(18px, env(safe-area-inset-top));
+    right: max(24px, env(safe-area-inset-right));
+    z-index: 20;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    pointer-events: none;
+  }
+  .hud-pill {
+    background: rgba(30,15,5,0.78);
+    border: 2px solid #c9a35a;
+    border-radius: 999px;
+    padding: 8px 18px;
+    font-family: 'Rye', serif;
+    color: #ffd884;
+    font-size: clamp(14px, 1.6vw, 18px);
+    letter-spacing: 1px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    text-shadow: 1px 1px 0 #000;
+  }
+  .hud-pill span { color: #fff; }
+  #hud.hidden { display: none; }
+
+  /* ---------- BANDITS ---------- */
+  .bandit {
+    position: absolute;
+    width: clamp(120px, 18vw, 220px);
+    cursor: crosshair;
+    z-index: 15;
+    pointer-events: auto;
+    filter: drop-shadow(0 8px 16px rgba(0,0,0,0.6));
+    transform-origin: center bottom;
+    animation: banditPop 0.35s ease-out;
+    transition: transform 0.15s;
+  }
+  .bandit:hover { transform: scale(1.05); }
+  .bandit.hit {
+    animation: banditHit 0.95s ease-out forwards;
+    pointer-events: none;
+  }
+  @keyframes banditPop {
+    0%   { transform: translateY(40px) scale(0.6); opacity: 0; }
+    60%  { transform: translateY(-6px) scale(1.06); opacity: 1; }
+    100% { transform: translateY(0) scale(1); opacity: 1; }
+  }
+  @keyframes banditHit {
+    0%   { transform: scale(1) rotate(0); opacity: 1; }
+    20%  { transform: scale(1.2) rotate(-8deg); filter: brightness(2) drop-shadow(0 0 20px #ffae3b); }
+    55%  { transform: scale(1.05) rotate(-4deg) translateY(10px); opacity: 1; }
+    100% { transform: scale(0.4) rotate(25deg) translateY(70px); opacity: 0; }
+  }
+
+  /* "BANG!" splat */
+  .bang {
+    position: absolute;
+    pointer-events: none;
+    z-index: 16;
+    font-family: 'Rye', serif;
+    font-size: clamp(38px, 6vw, 72px);
+    color: #ffd84a;
+    text-shadow:
+      3px 3px 0 #6e2a0c,
+      -2px -2px 0 #6e2a0c,
+      0 0 22px rgba(255,180,60,0.9);
+    transform: rotate(-12deg);
+    animation: bang 1.5s ease-out forwards;
+  }
+  @keyframes bang {
+    0%   { transform: rotate(-12deg) scale(0.4);  opacity: 0; }
+    14%  { transform: rotate(-9deg)  scale(1.2);  opacity: 1; }
+    24%  { transform: rotate(-7deg)  scale(1.0);  opacity: 1; }
+    65%  { transform: rotate(-5deg)  scale(1.05) translateY(-10px); opacity: 1; }
+    100% { transform: rotate(-3deg)  scale(1.25) translateY(-50px); opacity: 0; }
+  }
+
+  /* ---------- CONFETTI CANVAS ---------- */
+  #confetti {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 50;
+  }
+
+  /* ---------- VIGNETTE FRAME (wanted poster feel) ---------- */
+  #frame {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 30;
+    box-shadow: inset 0 0 180px rgba(20,8,2,0.85);
+  }
+
+  /* ---------- MUTE BUTTON ---------- */
+  #mute {
+    position: absolute;
+    top: max(18px, env(safe-area-inset-top));
+    left: max(18px, env(safe-area-inset-left));
+    z-index: 60;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(30,15,5,0.78);
+    border: 2px solid #c9a35a;
+    color: #ffd884;
+    font-size: 20px;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    transition: transform 0.1s, filter 0.1s;
+  }
+  #mute:active { transform: scale(0.92); }
+  #mute.muted { filter: grayscale(0.6) opacity(0.7); }
+
+  /* ---------- TYPING CURSOR ---------- */
+  .cursor {
+    display: inline-block;
+    width: 0.55em;
+    height: 1.05em;
+    background: #6e2a0c;
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    animation: blink 0.7s steps(2, end) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* ---------- iPHONE / PORTRAIT MOBILE ---------- */
+  @media (max-width: 820px) {
+    #sam-wrap {
+      height: clamp(220px, 38dvh, 360px);
+      left: -8%;
+      bottom: max(0px, env(safe-area-inset-bottom));
+    }
+
+    /* Bubble lives at the TOP on phone so it never covers Sam */
+    #bubble {
+      top: calc(12px + env(safe-area-inset-top));
+      left: max(10px, env(safe-area-inset-left));
+      right: max(10px, env(safe-area-inset-right));
+      bottom: auto;
+      max-width: none;
+      min-width: 0;
+      padding: 16px 18px 18px;
+      max-height: 62dvh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      border-radius: 16px;
+    }
+    #bubble::before, #bubble::after { display: none; }
+    #bubble h1 {
+      font-size: 22px;
+      margin-bottom: 8px;
+      line-height: 1.1;
+    }
+    #bubble p {
+      font-size: 16px;
+      line-height: 1.4;
+    }
+
+    /* Full-width tap-friendly buttons */
+    .btn {
+      display: block;
+      width: 100%;
+      margin-top: 14px;
+      padding: 16px 22px;
+      font-size: 18px;
+      box-shadow: 0 5px 0 #3a1505, 0 8px 14px rgba(0,0,0,0.5);
+    }
+    .btn:active {
+      transform: translateY(3px);
+      box-shadow: 0 2px 0 #3a1505, 0 4px 8px rgba(0,0,0,0.5);
+    }
+
+    /* HUD on a single row, smaller pills, away from notch */
+    #hud {
+      top: calc(8px + env(safe-area-inset-top));
+      right: calc(10px + env(safe-area-inset-right));
+      left: calc(10px + env(safe-area-inset-left));
+      gap: 8px;
+      justify-content: space-between;
+    }
+    .hud-pill {
+      padding: 7px 13px;
+      font-size: 13px;
+      letter-spacing: 0.5px;
+    }
+
+    /* Bigger bandit tap targets on phone */
+    .bandit {
+      width: clamp(140px, 36vw, 220px);
+    }
+
+    /* While the bubble is visible, dim Sam slightly so the eye goes up */
+    #bubble:not(.hidden) ~ #sam-wrap { opacity: 0.85; }
+  }
+
+  /* Tiny phones (iPhone SE-class, 375px) */
+  @media (max-width: 380px) {
+    #sam-wrap { height: clamp(200px, 32dvh, 280px); }
+    #bubble h1 { font-size: 20px; }
+    #bubble p  { font-size: 15px; }
+    .btn { font-size: 16px; padding: 14px 18px; }
+  }
+
+  /* Landscape phones — squish vertically */
+  @media (max-height: 500px) and (orientation: landscape) {
+    #sam-wrap { height: 80dvh; left: -6%; }
+    #bubble {
+      top: calc(8px + env(safe-area-inset-top));
+      left: 38vw;
+      right: max(10px, env(safe-area-inset-right));
+      bottom: auto;
+      max-height: 84dvh;
+      padding: 12px 16px;
+    }
+    #bubble h1 { font-size: 18px; margin-bottom: 4px; }
+    #bubble p  { font-size: 14px; }
+    .btn { width: auto; display: inline-block; margin-top: 8px; padding: 10px 18px; font-size: 15px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <div id="sam-wrap">
+    <img src="Photos/sam.png" alt="Sam Elliott" draggable="false" />
+  </div>
+
+  <div id="hud" class="hidden">
+    <div class="hud-pill">Bandits: <span id="score">0</span> / <span id="goal">8</span></div>
+    <div class="hud-pill">Time: <span id="timer">0:00</span></div>
+  </div>
+
+  <div id="bubble">
+    <h1 id="b-title">Howdy there, Susan…</h1>
+    <p id="b-text"></p>
+    <div id="b-actions"></div>
+  </div>
+</div>
+
+<button id="mute" aria-label="Toggle sound" title="Toggle sound">&#x1F50A;</button>
+
+<audio id="bg-music" src="sounds/background%20music.mp3" loop preload="auto"></audio>
+
+<div id="frame"></div>
+<canvas id="confetti"></canvas>
+
+<script>
+/* =====================================================
+   Happy Birthday, Susan — a cowboy mini-game
+   ===================================================== */
+
+const $ = sel => document.querySelector(sel);
+const stage   = $('#stage');
+const bubble  = $('#bubble');
+const bTitle  = $('#b-title');
+const bText   = $('#b-text');
+const bActs   = $('#b-actions');
+const hud     = $('#hud');
+const scoreEl = $('#score');
+const goalEl  = $('#goal');
+const timerEl = $('#timer');
+
+const BANDIT_IMGS = [
+  'Photos/bandit1.png',
+  'Photos/bandit2.png',
+  'Photos/bandit3.png',
+  'Photos/bandit4.png',
+];
+const TOTAL_BANDITS = 8;
+
+let score = 0;
+let gameActive = false;
+let spawnTimer = null;
+let elapsedTimer = null;
+let startTime = 0;
+
+/* ============================================================
+   AUDIO
+   ============================================================ */
+const bgMusic = $('#bg-music');
+bgMusic.volume = 0.35;
+
+/* Pool of gunshot Audio objects so rapid taps overlap cleanly */
+const GUNSHOT_POOL_SIZE = 5;
+const gunshotPool = Array.from({ length: GUNSHOT_POOL_SIZE }, () => {
+  const a = new Audio('sounds/gunshot.mp3');
+  a.preload = 'auto';
+  a.volume = 0.65;
+  return a;
+});
+let gunshotIdx = 0;
+let muted = false;
+
+function playGunshot() {
+  if (muted) return;
+  const a = gunshotPool[gunshotIdx];
+  gunshotIdx = (gunshotIdx + 1) % GUNSHOT_POOL_SIZE;
+  try { a.currentTime = 0; } catch (_) {}
+  a.play().catch(() => {});
+}
+
+/* Try to start music immediately. Most browsers (especially iOS Safari)
+   will block this until the first user gesture, so we also kick it off
+   on the very first tap/click/key. */
+function tryPlayMusic() {
+  if (muted) return;
+  bgMusic.play().catch(() => {});
+}
+tryPlayMusic();
+
+const startAudioOnFirstGesture = () => {
+  tryPlayMusic();
+  // Prime the gunshot pool too — iOS won't play these later otherwise.
+  gunshotPool.forEach(a => {
+    a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
+  });
+  document.removeEventListener('pointerdown', startAudioOnFirstGesture);
+  document.removeEventListener('touchstart',  startAudioOnFirstGesture);
+  document.removeEventListener('keydown',     startAudioOnFirstGesture);
+  document.removeEventListener('click',       startAudioOnFirstGesture);
+};
+document.addEventListener('pointerdown', startAudioOnFirstGesture, { once: true });
+document.addEventListener('touchstart',  startAudioOnFirstGesture, { once: true });
+document.addEventListener('keydown',     startAudioOnFirstGesture, { once: true });
+document.addEventListener('click',       startAudioOnFirstGesture, { once: true });
+
+/* Mute toggle */
+const muteBtn = $('#mute');
+muteBtn.addEventListener('click', () => {
+  muted = !muted;
+  muteBtn.classList.toggle('muted', muted);
+  muteBtn.innerHTML = muted ? '&#x1F507;' : '&#x1F50A;';
+  if (muted) {
+    bgMusic.pause();
+  } else {
+    bgMusic.play().catch(() => {});
+  }
+});
+
+/* ---------- Dust particles ---------- */
+function spawnDust() {
+  for (let i = 0; i < 18; i++) {
+    const d = document.createElement('div');
+    d.className = 'dust';
+    d.style.left = Math.random() * 100 + '%';
+    d.style.top  = (60 + Math.random() * 40) + '%';
+    d.style.animationDuration = (4 + Math.random() * 5) + 's';
+    d.style.animationDelay = (Math.random() * 5) + 's';
+    stage.appendChild(d);
+  }
+}
+spawnDust();
+
+/* ---------- Typewriter (supports **bold** markers) ---------- */
+function typeOut(el, text, speed = 26) {
+  return new Promise(resolve => {
+    el.textContent = '';
+    const cursor = document.createElement('span');
+    cursor.className = 'cursor';
+    el.appendChild(cursor);
+
+    let i = 0;
+    let bold = false;
+    let boldEl = null;
+
+    const tick = () => {
+      // Toggle bold on every "**" we encounter (no character is printed).
+      while (i < text.length - 1 && text[i] === '*' && text[i + 1] === '*') {
+        bold = !bold;
+        if (bold) {
+          boldEl = document.createElement('b');
+          cursor.parentNode.insertBefore(boldEl, cursor);
+        } else {
+          boldEl = null;
+        }
+        i += 2;
+      }
+
+      if (i < text.length) {
+        const ch = text[i];
+        if (bold && boldEl) {
+          boldEl.appendChild(document.createTextNode(ch));
+        } else {
+          cursor.insertAdjacentText('beforebegin', ch);
+        }
+        i++;
+        setTimeout(tick, speed + (Math.random() * 24 - 12));
+      } else {
+        cursor.remove();
+        resolve();
+      }
+    };
+    tick();
+  });
+}
+
+/* ---------- Sam dialog helper ---------- */
+async function samSays({ title, text, actions = [] }) {
+  bubble.classList.remove('hidden');
+  bTitle.textContent = title;
+  bActs.innerHTML = '';
+  await typeOut(bText, text, 24);
+  actions.forEach(a => {
+    const btn = document.createElement('button');
+    btn.className = 'btn';
+    btn.textContent = a.label;
+    btn.onclick = a.onClick;
+    bActs.appendChild(btn);
+  });
+}
+
+function hideBubble() { bubble.classList.add('hidden'); }
+
+/* ---------- Game flow ---------- */
+async function intro() {
+  await samSays({
+    title: "Well howdy there, Susan…",
+    text:
+      "Pull up a stool an' set a spell, ma'am. The name's Sam, an' I rode a long, dusty trail just to tip my hat to ya on yer birthday. " +
+      "Yer son sent word ahead — said today's a mighty special day, an' he's got somethin' waitin' for ya when the dust settles. " +
+      "But before we get to celebratin', we got ourselves a little problem out here on the frontier…",
+    actions: [{
+      label: "What's the trouble, Sam?",
+      onClick: () => act2()
+    }]
+  });
+}
+
+async function act2() {
+  await samSays({
+    title: "There's varmints in the valley.",
+    text:
+      "A pack o' no-good, low-down bandits rode into town fixin' to spoil yer birthday. Can't have that — not for the finest lady this side o' the Rio Grande. " +
+      "Reckon you an' me oughta run 'em outta here together, partner. Hope ya brought plenty o' bullets, 'cause yer gonna need every last one… " +
+      "an' somewhere mighty handy to keep 'em close, if ya catch my drift.",
+    actions: [{
+      label: "Saddle up, Sam.",
+      onClick: () => startGame()
+    }]
+  });
+}
+
+function startGame() {
+  hideBubble();
+  document.body.classList.add('shooting');
+  hud.classList.remove('hidden');
+  goalEl.textContent = TOTAL_BANDITS;
+  score = 0;
+  scoreEl.textContent = 0;
+  gameActive = true;
+  startTime = Date.now();
+
+  elapsedTimer = setInterval(() => {
+    const s = Math.floor((Date.now() - startTime) / 1000);
+    const m = Math.floor(s / 60);
+    timerEl.textContent = `${m}:${String(s % 60).padStart(2, '0')}`;
+  }, 250);
+
+  scheduleNextBandit(700);
+}
+
+function scheduleNextBandit(delay) {
+  if (!gameActive) return;
+  spawnTimer = setTimeout(() => {
+    spawnBandit();
+    if (gameActive) scheduleNextBandit(900 + Math.random() * 1100);
+  }, delay);
+}
+
+function spawnBandit() {
+  if (!gameActive) return;
+
+  const img = document.createElement('img');
+  img.src = BANDIT_IMGS[Math.floor(Math.random() * BANDIT_IMGS.length)];
+  img.className = 'bandit';
+  img.draggable = false;
+
+  // Use visual viewport when available (better on iOS Safari)
+  const vv = window.visualViewport;
+  const w = vv ? vv.width  : window.innerWidth;
+  const h = vv ? vv.height : window.innerHeight;
+  const isMobile = w < 820;
+
+  const banditW = isMobile
+    ? Math.min(220, Math.max(140, w * 0.34))
+    : Math.min(220, Math.max(120, w * 0.18));
+  const banditH = banditW * 1.4;
+
+  let minX, maxX, minY, maxY;
+
+  if (isMobile) {
+    // Phone: bandits live in the upper/middle band so they clear the bubble
+    // (when shown) and Sam (always anchored bottom-left).
+    minX = 8;
+    maxX = w - banditW - 8;
+    minY = 70;                         // below the HUD
+    maxY = h * 0.55;                   // above Sam's territory
+    if (maxY - minY < banditH + 10) {
+      maxY = Math.min(h - banditH - 10, minY + banditH + 30);
+    }
+  } else {
+    minX = Math.min(w * 0.30, 360);    // clear of desktop Sam on the left
+    maxX = w - banditW - 10;
+    minY = 60;
+    maxY = h - banditH - 20;
+  }
+
+  const x = minX + Math.random() * Math.max(0, (maxX - minX));
+  const y = minY + Math.random() * Math.max(0, (maxY - minY));
+
+  img.style.left = x + 'px';
+  img.style.top  = y + 'px';
+
+  let alive = true;
+  const lifespan = 1700 + Math.random() * 900;
+
+  img.addEventListener('pointerdown', e => {
+    if (!alive || !gameActive) return;
+    alive = false;
+    img.classList.add('hit');
+    playGunshot();
+    showBang(e.clientX, e.clientY);
+    score++;
+    scoreEl.textContent = score;
+    flashCheer();
+    setTimeout(() => img.remove(), 950);
+    if (score >= TOTAL_BANDITS) winGame();
+  });
+
+  stage.appendChild(img);
+
+  setTimeout(() => {
+    if (alive && img.parentNode) {
+      img.style.transition = 'opacity 0.4s, transform 0.4s';
+      img.style.opacity = '0';
+      img.style.transform = 'translateY(30px) scale(0.8)';
+      setTimeout(() => img.remove(), 420);
+    }
+  }, lifespan);
+}
+
+function showBang(x, y) {
+  const bang = document.createElement('div');
+  bang.className = 'bang';
+  bang.textContent = ['BANG!', 'POW!', 'YEEHAW!', 'GOTCHA!'][Math.floor(Math.random() * 4)];
+  bang.style.left = (x - 50) + 'px';
+  bang.style.top  = (y - 40) + 'px';
+  stage.appendChild(bang);
+  setTimeout(() => bang.remove(), 1500);
+}
+
+const cheers = [
+  "Atta girl, Susan!",
+  "Quick draw, partner!",
+  "Show 'em who's boss!",
+  "Yeehaw — birthday girl's on fire!",
+  "Better save some rounds, darlin'!",
+  "Yer burnin' through bullets fast!",
+  "You're a natural, Susan!",
+  "Reload, reload — keep 'em comin'!"
+];
+let cheerCooldown = false;
+function flashCheer() {
+  if (cheerCooldown) return;
+  cheerCooldown = true;
+  setTimeout(() => cheerCooldown = false, 1800);
+
+  const txt = cheers[Math.floor(Math.random() * cheers.length)];
+  const c = document.createElement('div');
+  c.textContent = txt;
+  c.style.cssText = `
+    position:absolute; left:50%; top:18%;
+    transform:translateX(-50%);
+    font-family:'Rye',serif;
+    font-size:clamp(20px,3vw,30px);
+    color:#fff5dc;
+    text-shadow:2px 2px 0 #6e2a0c, 0 0 18px rgba(255,180,60,0.8);
+    z-index:25;
+    animation:cheerFly 2.3s ease-out forwards;
+    pointer-events:none;
+  `;
+  stage.appendChild(c);
+  setTimeout(() => c.remove(), 2300);
+}
+
+const styleExtra = document.createElement('style');
+styleExtra.textContent = `
+@keyframes cheerFly {
+  0%   { opacity: 0; transform: translate(-50%, 20px) scale(0.7); }
+  12%  { opacity: 1; transform: translate(-50%, 0)   scale(1.1); }
+  70%  { opacity: 1; transform: translate(-50%, -20px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -70px) scale(1); }
+}`;
+document.head.appendChild(styleExtra);
+
+/* ---------- Win ---------- */
+async function winGame() {
+  gameActive = false;
+  clearTimeout(spawnTimer);
+  clearInterval(elapsedTimer);
+
+  // Clean up any remaining bandits
+  document.querySelectorAll('.bandit').forEach(b => {
+    if (!b.classList.contains('hit')) {
+      b.style.transition = 'opacity 0.4s, transform 0.4s';
+      b.style.opacity = '0';
+      setTimeout(() => b.remove(), 420);
+    }
+  });
+
+  hud.classList.add('hidden');
+  document.body.classList.remove('shooting'); // Sam rides back in
+  startConfetti();
+
+  await samSays({
+    title: "Well I'll be hornswoggled, Susan!",
+    text:
+      "Ya cleaned up this whole dadgum town single-handed. Quick as a rattlesnake an' twice as kind. " +
+      "Now I tell ya what — a gunslinger as sharp as you blazes through ammunition somethin' fierce. " +
+      "Reckon yer gonna need a proper place to keep all them bullets handy… somethin' a real outlaw could wear with pride. " +
+      "But that's a tale for later. First — take a breath, birthday girl. Ya earned it.",
+    actions: [{
+      label: "♥ One more thing, Sam",
+      onClick: () => finalLine()
+    }]
+  });
+}
+
+async function finalLine() {
+  await samSays({
+    title: "Happy Birthday, Susan.",
+    text:
+      "Yer one in a million, darlin'. Always have been, always will be. " +
+      "Now listen close — yer boy asked me to deliver this part personal-like. " +
+      "He'll be ridin' in to see ya on **May the 13th**, an' he ain't comin' empty-handed. " +
+      "He's bringin' along somethin' special — somethin' fittin' for a sharpshooter like yerself, " +
+      "so a gal o' yer talents never runs short on rounds again. " +
+      "But mum's the word from this ol' cowboy — wouldn't wanna spoil the surprise. " +
+      "Now go enjoy yer day. ♥ — Sam (an' yer son who put me up to this)",
+    actions: [{
+      label: "Ride again",
+      onClick: () => location.reload()
+    }]
+  });
+  burstConfetti(180);
+}
+
+/* ============================================================
+   CONFETTI
+   ============================================================ */
+const cv = document.getElementById('confetti');
+const ctx = cv.getContext('2d');
+let confettiPieces = [];
+let confettiRunning = false;
+
+function resizeCanvas() {
+  const vv = window.visualViewport;
+  cv.width  = vv ? vv.width  : window.innerWidth;
+  cv.height = vv ? vv.height : window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 200));
+if (window.visualViewport) window.visualViewport.addEventListener('resize', resizeCanvas);
+
+/* Lock zoom/scroll on iOS so taps never pan the page during the game. */
+document.addEventListener('gesturestart',  e => e.preventDefault());
+document.addEventListener('touchmove', e => { if (gameActive) e.preventDefault(); }, { passive: false });
+
+const COLORS = ['#ff4d6d', '#ffb84d', '#ffd84a', '#7ad3a3', '#4db8ff', '#c77dff', '#ff7ab6', '#fff5dc'];
+
+function makePiece(x, y, vy0) {
+  return {
+    x, y,
+    vx: (Math.random() - 0.5) * 6,
+    vy: vy0 ?? (Math.random() * -3 - 2),
+    g: 0.12 + Math.random() * 0.08,
+    size: 6 + Math.random() * 8,
+    color: COLORS[Math.floor(Math.random() * COLORS.length)],
+    rot: Math.random() * Math.PI * 2,
+    vr: (Math.random() - 0.5) * 0.3,
+    shape: Math.random() < 0.5 ? 'rect' : 'circle',
+    life: 0
+  };
+}
+
+function startConfetti() {
+  burstConfetti(220);
+  if (!confettiRunning) {
+    confettiRunning = true;
+    requestAnimationFrame(loopConfetti);
+  }
+  // Stop spawning extras after a while; existing pieces still fall.
+  setTimeout(() => { /* gentle fade handled by life check */ }, 4000);
+}
+
+function burstConfetti(count) {
+  const cx = window.innerWidth / 2;
+  const cy = window.innerHeight * 0.25;
+  for (let i = 0; i < count; i++) {
+    const p = makePiece(
+      cx + (Math.random() - 0.5) * window.innerWidth * 0.7,
+      cy + (Math.random() - 0.5) * 80,
+      Math.random() * -6 - 2
+    );
+    confettiPieces.push(p);
+  }
+}
+
+function loopConfetti() {
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  for (let i = confettiPieces.length - 1; i >= 0; i--) {
+    const p = confettiPieces[i];
+    p.vy += p.g;
+    p.x  += p.vx;
+    p.y  += p.vy;
+    p.rot += p.vr;
+    p.life++;
+
+    // Gentle fade after ~3.5 seconds (210 frames @ 60fps)
+    const fade = p.life > 210 ? Math.max(0, 1 - (p.life - 210) / 60) : 1;
+
+    ctx.save();
+    ctx.globalAlpha = fade;
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rot);
+    ctx.fillStyle = p.color;
+    if (p.shape === 'rect') {
+      ctx.fillRect(-p.size / 2, -p.size / 3, p.size, p.size * 0.6);
+    } else {
+      ctx.beginPath();
+      ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    if (p.y > cv.height + 40 || fade <= 0) {
+      confettiPieces.splice(i, 1);
+    }
+  }
+
+  if (confettiPieces.length > 0) {
+    requestAnimationFrame(loopConfetti);
+  } else {
+    confettiRunning = false;
+    ctx.clearRect(0, 0, cv.width, cv.height);
+  }
+}
+
+/* ---------- Boot ---------- */
+window.addEventListener('load', () => {
+  setTimeout(intro, 500);
+});
+</script>
+</body>
+</html>
