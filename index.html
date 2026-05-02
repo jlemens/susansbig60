@@ -657,19 +657,33 @@ Object.entries(VOICE_FILES).forEach(([key, src]) => {
 });
 
 let currentVoice = null;
-const MUSIC_NORMAL_VOLUME = 0.35;
-const MUSIC_DUCKED_VOLUME = 0.10;
+let musicDucked = false;
 
+/* Pause the music during voice — pure pause/resume because iOS Safari
+   ignores HTML5 audio volume changes (volume is hardware-controlled).
+   That makes pause the only reliable way to keep music from competing
+   with Sam's voice on Susan's iPhone. */
 function duckMusic(on) {
-  try { bgMusic.volume = on ? MUSIC_DUCKED_VOLUME : MUSIC_NORMAL_VOLUME; } catch (_) {}
+  if (musicDucked === on) return;
+  musicDucked = on;
+  if (on) {
+    try { bgMusic.pause(); } catch (_) {}
+  } else {
+    if (musicShouldPlay && !muted) {
+      const p = bgMusic.play();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    }
+  }
 }
 
+/* Stop the current voice WITHOUT un-ducking the music. Used when the
+   user taps "next" mid-voice so music stays paused into the next scene
+   rather than briefly blaring between dialog blocks. */
 function stopVoice() {
   if (currentVoice) {
     try { currentVoice.pause(); currentVoice.currentTime = 0; } catch (_) {}
   }
   currentVoice = null;
-  duckMusic(false);
 }
 
 /* Returns the Audio object so callers can read its duration to sync typing. */
@@ -684,19 +698,19 @@ function playVoice(key) {
 
   currentVoice = a;
   try { a.currentTime = 0; } catch (_) {}
-  duckMusic(true);
+  duckMusic(true);   // pause music for the duration of this voice line
 
   const onEnd = () => {
     if (currentVoice === a) {
       currentVoice = null;
-      duckMusic(false);
+      duckMusic(false);   // music resumes when Sam stops talking
     }
     a.removeEventListener('ended', onEnd);
   };
   a.addEventListener('ended', onEnd);
 
   a.play().catch(() => {
-    // If this play() fails, restore music volume so we don't leave it ducked.
+    // If this play() fails entirely, restore music so we don't leave it paused.
     if (currentVoice === a) {
       currentVoice = null;
       duckMusic(false);
@@ -802,7 +816,11 @@ muteBtn.addEventListener('click', () => {
     bgMusic.pause();
     stopVoice();
   } else {
-    tryPlayMusic();
+    // Only resume music if it should be playing AND nothing is ducking it.
+    if (musicShouldPlay && !musicDucked) {
+      const p = bgMusic.play();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    }
   }
 });
 
@@ -974,6 +992,7 @@ async function act2() {
 function startGame() {
   hideBubble();
   document.body.classList.add('shooting');
+  duckMusic(false);   // shootout plays at full music volume
   hud.classList.remove('hidden');
   goalEl.textContent = TOTAL_BANDITS;
   score = 0;
