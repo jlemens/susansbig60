@@ -749,6 +749,19 @@ function hideBubble() { bubble.classList.add('hidden'); }
 /* ---------- Game flow ---------- */
 async function intro() {
   await samSays({
+    title: "Well holy shit, Susan…",
+    text:
+      "Yer turnin' **60**?! Dog-gon-it — I was 'bout that age when I fought in the Civil War. " +
+      "Now that's a milestone worth tippin' the hat to.",
+    actions: [{
+      label: "Tell me more, Sam",
+      onClick: () => act1b()
+    }]
+  });
+}
+
+async function act1b() {
+  await samSays({
     title: "Well howdy there, Susan…",
     text:
       "Pull up a stool an' set a spell, ma'am. The name's Sam, an' I rode a long, dusty trail just to tip my hat to ya on yer birthday. " +
